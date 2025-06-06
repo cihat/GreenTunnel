@@ -145,18 +145,14 @@ app.on('window-all-closed', () => {
   }
 });
 
-// app.on('activate', () => {
-//   if (win === null) {
-//     createWindow();
-//   }
-// });
+app.on('activate', () => {
+  if (win === null) {
+    createWindow();
+  }
+});
 
 app.whenReady().then(() => {
-  if (false) {
-    // createWindow();
-  } else {
-    turnOn();
-  }
+  createWindow();
   const iconPath = path.join(__dirname, 'images/iconTemplate@2x.png');
   const trayIcon = nativeImage.createFromPath(iconPath);
   tray = new Tray(trayIcon);
