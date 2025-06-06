@@ -5,16 +5,15 @@ const { Proxy } = require('green-tunnel');
 const path = require('path');
 const os = require('os');
 
-// diable any dialog box!
+// Disable any dialog box
 const electron = require('electron');
 const dialog = electron.dialog;
-dialog.showErrorBox = function(title, content) {
+dialog.showErrorBox = function (title, content) {
     console.log(`${title}\n${content}`);
 };
 
-// if (require('electron-squirrel-startup')) return;
+// Handle Squirrel events for Windows installer
 const setupEvents = require('./installers/windows/setupEvents');
-
 if (setupEvents.handleSquirrelEvent()) {
     return;
 }
@@ -57,16 +56,18 @@ async function turnOff() {
 
     if (proxy) {
         await proxy.stop();
-        proxy = null
+        proxy = null;
     }
 
-    win.webContents.send('changeStatus', isOn);
+    if (win && !win.isDestroyed()) {
+        win.webContents.send('changeStatus', isOn);
+    }
 
     menuItems[0].label = 'Enable';
     menuItems[0].click = () => turnOn();
     tray.setContextMenu(Menu.buildFromTemplate(menuItems));
 
-    const iconPath = path.join(__dirname, 'images/iconDisabledTemplate.png');
+    const iconPath = path.join(__dirname, 'images/iconDisabledTemplate@2x.png');
     const trayIcon = nativeImage.createFromPath(iconPath);
     tray.setImage(trayIcon);
 }
@@ -75,19 +76,21 @@ async function turnOn() {
     isOn = true;
 
     if (proxy) {
-        await turnOff()
+        await turnOff();
     }
 
-    proxy = new Proxy({source: 'GUI'});
-    await proxy.start({setProxy: true});
+    proxy = new Proxy({ source: 'GUI' });
+    await proxy.start({ setProxy: true });
 
-    win.webContents.send('changeStatus', isOn);
+    if (win && !win.isDestroyed()) {
+        win.webContents.send('changeStatus', isOn);
+    }
 
     menuItems[0].label = 'Disable';
     menuItems[0].click = () => turnOff();
     tray.setContextMenu(Menu.buildFromTemplate(menuItems));
 
-    const iconPath = path.join(__dirname, 'images/iconTemplate.png');
+    const iconPath = path.join(__dirname, 'images/iconTemplate@2x.png');
     const trayIcon = nativeImage.createFromPath(iconPath);
     tray.setImage(trayIcon);
 }
@@ -114,76 +117,97 @@ function createWindow() {
         frame: false,
         transparent: true,
         webPreferences: {
+            // Keep original functionality - minimal changes for compatibility
             nodeIntegration: true,
+            contextIsolation: false,
+            enableRemoteModule: false
         }
     });
 
-    // save states
+    // Save window state
     stateManager.manage(win);
 
     win.loadFile('./view/main-page/index.html');
 
-    win.on('ready-to-show', function() {
+    win.once('ready-to-show', () => {
         win.show();
         win.focus();
         turnOn();
     });
 
     win.on('closed', () => {
-        win = null
+        win = null;
     });
 
-    if(debug)
-        win.webContents.openDevTools()
+    if (debug) {
+        win.webContents.openDevTools();
+    }
 }
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
-        app.quit()
+        app.quit();
     }
 });
 
 app.on('activate', () => {
     if (win === null) {
-        createWindow()
+        createWindow();
     }
 });
 
-app.on('ready', () => {
+app.whenReady().then(() => {
     createWindow();
-    const iconPath = path.join(__dirname, 'images/iconTemplate.png');
+    const iconPath = path.join(__dirname, 'images/iconTemplate@2x.png');
     const trayIcon = nativeImage.createFromPath(iconPath);
     tray = new Tray(trayIcon);
     tray.setToolTip('Green Tunnel');
     tray.setContextMenu(Menu.buildFromTemplate(menuItems));
 
-    // Restore the window on a double click
+    // Restore the window on double click
     tray.on('double-click', () => {
-        if(win.isVisible())
+        if (win.isVisible()) {
             win.hide();
-        else
+        } else {
             win.show();
+        }
     });
-});
+})
 
 app.on('before-quit', async (e) => {
-    if(isOn) {
+    if (isOn) {
         e.preventDefault();
         await turnOff();
         app.quit();
     }
 });
 
+// Keep original IPC handlers - no changes to maintain compatibility
 ipcMain.on('close-button', (event, arg) => {
-    if(os.platform() === 'darwin')
+    if (os.platform() === 'darwin') {
         app.hide();
-    else
+    } else {
         win.hide();
+    }
 });
 
 ipcMain.on('on-off-button', (event, arg) => {
-    if(isOn)
+    if (isOn) {
         turnOff();
-    else
+    } else {
         turnOn();
+    }
 });
+
+// Optional: Single instance enforcement (can be removed if not needed)
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+    app.quit();
+} else {
+    app.on('second-instance', () => {
+        if (win) {
+            if (win.isMinimized()) win.restore();
+            win.focus();
+        }
+    });
+}
