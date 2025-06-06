@@ -37,12 +37,7 @@ const menuItems = [
   {
     label: 'Source Code',
     type: 'normal',
-    click: () => shell.openExternal('https://github.com/SadeghHayeri/GreenTunnel'),
-  },
-  {
-    label: 'Donate',
-    type: 'normal',
-    click: () => shell.openExternal('https://github.com/SadeghHayeri/GreenTunnel#donation'),
+    click: () => shell.openExternal('https://github.com/cihat/GreenTunnel'),
   },
   {
     role: 'quit',
@@ -150,14 +145,14 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('activate', () => {
-  if (win === null) {
-    createWindow();
-  }
-});
+// app.on('activate', () => {
+//   if (win === null) {
+//     createWindow();
+//   }
+// });
 
 app.whenReady().then(() => {
-  createWindow();
+  // createWindow();
   const iconPath = path.join(__dirname, 'images/iconTemplate@2x.png');
   const trayIcon = nativeImage.createFromPath(iconPath);
   tray = new Tray(trayIcon);
